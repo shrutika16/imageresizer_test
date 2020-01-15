@@ -21,15 +21,19 @@ class Welcome extends CI_Controller {
 	 
 	public function __construct() {
         parent::__construct();
-        $this->load->helper(array('form', 'url'));
+		$this->load->helper(array('form', 'url'));
+		$this->load->library(array('session'));
     }
 	
 	public function index()
 	{
+		echo $this->session->flashdata('success_message');
+		echo $this->session->flashdata('error_message');
 		$this->load->view('welcome_message', array('error' => '' ));
 	}
 	
 	public function submit(){
+		$upload_path = realpath(APPPATH.'../').'/assets/images/';
 		$upload_status = [];
 		$imageUploadType = $this->input->post('imageUploadType');
 		if($imageUploadType == 'ImageText'){
@@ -47,13 +51,16 @@ class Welcome extends CI_Controller {
 			list($img, $ext) = explode('/',$size['mime']);
 			$extension = $image_extension = $ext;
 		}else{
-			$config['upload_path'] = $this->config->item('local_server_images');
+			$config['upload_path'] = $upload_path; // $this->config->item('local_server_images');exit;
 			$config['allowed_types'] = 'gif|jpg|png';
 			$this->load->library('upload', $config);
 			
 			if (!$this->upload->do_upload('userfile')) {
 				$error = array('error' => $this->upload->display_errors());
-				$this->load->view('welcome_message', array('error' => $error));
+				// print_r($error);
+				$this->session->set_flashdata('error_message', $this->upload->display_errors());
+				redirect(base_url());
+				// $this->load->view('welcome_message', array('error' => $error));
 			} else {
 				$data = array('image_metadata' => $this->upload->data());
 				$image_name = $data['image_metadata']['file_name'];
@@ -65,8 +72,8 @@ class Welcome extends CI_Controller {
 		}
 		
 		if(isset($image_name)){
-			$save = $this->config->item('local_server_resized_images')."sml_" . $image_name ;
-			$file = $this->config->item('local_server_images'). $image_name ;
+			$save = $upload_path."sml_" . $image_name ;
+			$file = $upload_path. $image_name ;
 			$width = $image_width;
 			$height = $image_height;
 			$modwidth = $this->input->post('rw');
@@ -86,8 +93,10 @@ class Welcome extends CI_Controller {
 			
 			$upload_status = $this->imgur($save);
 		}
-		//echo "<pre>"; print_r($upload_status);
-		$this->load->view('welcome_message', array('error' => '' , 'upload_status'=> $upload_status));
+		// echo "<pre>"; print_r($upload_status);
+		$this->session->set_flashdata('success_message', 'Image resized successfully. To check <a href="'.$upload_status['path'].'" target="_blank">click here</a>');
+		redirect(base_url());
+		// $this->load->view('welcome_message', array('error' => '' , 'upload_status'=> $upload_status));
 	}
 	
 	public function imgur($imageUpload){
@@ -109,6 +118,7 @@ class Welcome extends CI_Controller {
 		//echo "<pre>"; print_r($out);exit;
 		curl_close ($curl);
 		$pms = json_decode($out,true);
+		// print_r($pms); exit;
 		$url=$pms['data']['link'];
 		if($url!=""){
 			$img_path = ['upload'=>'success', 'path'=> $url];
